@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <title>欲望博弈</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="score-card">
+      <div class="score-label">今日总分</div>
+      <div class="score-value" id="todayScore">—</div>
+      <div class="score-meta" id="todayMeta">加载中…</div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>🛡️ 离散诱惑</h2>
+      <div class="grid" id="discreteTempGrid"></div>
+    </section>
+
+    <section>
+      <h2>⏳ 连续诱惑</h2>
+      <div class="grid" id="continuousTempGrid"></div>
+    </section>
+
+    <section>
+      <h2>💪 应做事项（奖励）</h2>
+      <div class="grid" id="continuousRewardGrid"></div>
+    </section>
+
+    <section>
+      <h2>🍽️ 健康饮食</h2>
+      <div class="grid" id="discreteRewardGrid"></div>
+    </section>
+
+    <section>
+      <button class="extra-btn" id="extraBtn">＋ 临时诱惑（不在清单内）</button>
+    </section>
+
+    <section>
+      <h2>📋 今日记录</h2>
+      <div id="todayLog" class="log-list"><div class="muted">暂无记录</div></div>
+    </section>
+  </main>
+
+  <!-- 通用模态框 -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-content">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="modalCancel">取消</button>
+        <button class="btn-primary" id="modalConfirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
