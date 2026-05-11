@@ -1,7 +1,7 @@
 {
-  "_comment": "所有可调参数集中在这里。改完 push 即可生效，不用动代码。",
-  "appsScriptUrl": "https://script.google.com/macros/s/AKfycbze1Q7z53FBuTMi2yqSrZDFN6g0nE0Mepgs9-ca4yBOOFzdf3r3PjzWSPdSxxi5G1A/exec",
-  "secret": "votmdnjem",
+  "_comment": "v2: 加入咖啡，连续诱惑改双滑杆，连续奖励 today's total 模型",
+  "appsScriptUrl": "REPLACE_WITH_YOUR_URL",
+  "secret": "REPLACE_WITH_YOUR_SECRET",
 
   "discreteTemptations": [
     { "id": "delivery", "name": "点外卖", "emoji": "🥡" },
@@ -16,13 +16,14 @@
   ],
 
   "continuousTemptations": [
-    { "id": "phone", "name": "刷手机/看视频", "emoji": "📱", "threshold": 3, "unit": "小时", "step": 0.5 },
-    { "id": "daynap", "name": "白天补觉", "emoji": "😴", "threshold": 1.5, "unit": "小时", "step": 0.5 }
+    { "id": "phone", "name": "刷手机/看视频", "emoji": "📱", "threshold": 3, "unit": "小时", "min": 0, "max": 8, "step": 1 },
+    { "id": "daynap", "name": "白天补觉", "emoji": "😴", "threshold": 1.5, "unit": "小时", "min": 0, "max": 4, "step": 0.5 }
   ],
 
   "continuousRewards": [
-    { "id": "exercise", "name": "运动", "emoji": "🏃", "baseline": 7, "unit": "分钟", "step": 1, "rate": 0.3, "ratePer": 1, "cap": 6 },
-    { "id": "writing", "name": "写作", "emoji": "✍️", "baseline": 2000, "unit": "字", "step": 100, "rate": 0.4, "ratePer": 100, "cap": 8 }
+    { "id": "exercise", "name": "运动", "emoji": "🏃", "baseline": 7, "unit": "分钟", "min": 7, "max": 30, "step": 3, "rate": 0.3, "ratePer": 1, "cap": 6, "inverse": false },
+    { "id": "writing", "name": "写作", "emoji": "✍️", "baseline": 1500, "unit": "字", "min": 1500, "max": 3000, "step": 300, "rate": 0.4, "ratePer": 100, "cap": 8, "inverse": false },
+    { "id": "coffee", "name": "咖啡", "emoji": "☕", "baseline": 2, "unit": "杯", "min": 0, "max": 2, "step": 1, "rate": 1, "ratePer": 1, "cap": 2, "inverse": true }
   ],
 
   "discreteRewards": [
@@ -32,6 +33,6 @@
 
   "scoring": {
     "discreteSurrenderMultiplier": 0.5,
-    "continuousSurrenderMultiplier": 0.5
+    "continuousPenaltyMultiplier": 0.5
   }
 }
