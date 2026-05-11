@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0f172a">
-  <title>欲望博弈</title>
+  <title>Fight and Conquer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
+    <div class="app-title">Fight and Conquer</div>
     <div class="score-card">
-      <div class="score-label">今日总分</div>
+      <div class="score-label">今日战绩</div>
       <div class="score-value" id="todayScore">—</div>
       <div class="score-meta" id="todayMeta">加载中…</div>
     </div>
@@ -18,22 +19,22 @@
 
   <main>
     <section>
-      <h2>🛡️ 离散诱惑</h2>
+      <h2>💭 一念之间</h2>
       <div class="grid" id="discreteTempGrid"></div>
     </section>
 
     <section>
-      <h2>⏳ 连续诱惑</h2>
+      <h2>⏳ 适可而止</h2>
       <div class="grid" id="continuousTempGrid"></div>
     </section>
 
     <section>
-      <h2>💪 应做事项（奖励）</h2>
+      <h2>💪 身心强大</h2>
       <div class="grid" id="continuousRewardGrid"></div>
     </section>
 
     <section>
-      <h2>🍽️ 健康饮食</h2>
+      <h2>🍱 健康饮食</h2>
       <div class="grid" id="discreteRewardGrid"></div>
     </section>
 
@@ -42,12 +43,11 @@
     </section>
 
     <section>
-      <h2>📋 今日记录</h2>
+      <h2>📋 今日战报</h2>
       <div id="todayLog" class="log-list"><div class="muted">暂无记录</div></div>
     </section>
   </main>
 
-  <!-- 通用模态框 -->
   <div class="modal" id="modal" hidden>
     <div class="modal-content">
       <div class="modal-title" id="modalTitle"></div>
