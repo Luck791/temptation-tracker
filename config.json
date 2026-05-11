@@ -1,7 +1,7 @@
 {
   "_comment": "v2: 加入咖啡，连续诱惑改双滑杆，连续奖励 today's total 模型",
-  "appsScriptUrl": "REPLACE_WITH_YOUR_URL",
-  "secret": "REPLACE_WITH_YOUR_SECRET",
+  "appsScriptUrl": "https://script.google.com/macros/s/AKfycbze1Q7z53FBuTMi2yqSrZDFN6g0nE0Mepgs9-ca4yBOOFzdf3r3PjzWSPdSxxi5G1A/exec",
+  "secret": "votmdnjem",
 
   "discreteTemptations": [
     { "id": "delivery", "name": "点外卖", "emoji": "🥡" },
