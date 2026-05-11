@@ -17,7 +17,6 @@ const els = {
   toast: document.getElementById('toast'),
 };
 
-// ============= 启动 =============
 async function init() {
   hideModal();
   try {
@@ -31,7 +30,6 @@ async function init() {
   await refreshToday();
 }
 
-// ============= 后端通信 =============
 async function callBackend(action, body = {}) {
   const payload = { secret: CONFIG.secret, action, ...body };
   const res = await fetch(CONFIG.appsScriptUrl, {
@@ -44,7 +42,6 @@ async function callBackend(action, body = {}) {
   return data;
 }
 
-// ============= 渲染瓦片 =============
 function renderTiles() {
   els.discreteTempGrid.innerHTML = '';
   CONFIG.discreteTemptations.forEach(item => {
@@ -52,28 +49,25 @@ function renderTiles() {
     tile.onclick = () => onDiscreteTempClick(item);
     els.discreteTempGrid.appendChild(tile);
   });
-
   els.continuousTempGrid.innerHTML = '';
   CONFIG.continuousTemptations.forEach(item => {
     const tile = createTile(item.emoji, item.name, `阈值 ${item.threshold}${item.unit}`);
     tile.onclick = () => onContinuousTempClick(item);
     els.continuousTempGrid.appendChild(tile);
   });
-
   els.continuousRewardGrid.innerHTML = '';
   CONFIG.continuousRewards.forEach(item => {
-    const tile = createTile(item.emoji, item.name, `基线 ${item.baseline}${item.unit}`);
+    const tile = createTile(item.emoji, item.name,
+      item.inverse ? `目标 ≤${item.baseline}${item.unit}` : `基线 ${item.baseline}${item.unit}`);
     tile.onclick = () => onContinuousRewardClick(item);
     els.continuousRewardGrid.appendChild(tile);
   });
-
   els.discreteRewardGrid.innerHTML = '';
   CONFIG.discreteRewards.forEach(item => {
     const tile = createTile(item.emoji, item.name, `+${item.score}/次`);
     tile.onclick = () => onDiscreteRewardClick(item);
     els.discreteRewardGrid.appendChild(tile);
   });
-
   els.extraBtn.onclick = onExtraClick;
 }
 
@@ -84,23 +78,20 @@ function createTile(emoji, name, sub = '') {
   return div;
 }
 
-// ============= 离散诱惑 =============
+// ============= 一念之间（离散诱惑）=============
 async function onDiscreteTempClick(item) {
   let subitem = null;
   if (item.subItems && item.subItems.length) {
     subitem = await pickSubItem(item);
     if (!subitem) return;
   }
-  const result = await openTemptationModal({
+  const result = await openDiscreteTempModal({
     title: subitem ? `${item.name} - ${subitem.name}` : item.name,
-    needAmount: false,
   });
   if (!result) return;
-
   const score = result.resisted
     ? result.desire
     : -result.desire * CONFIG.scoring.discreteSurrenderMultiplier;
-
   await logEvent({
     category: 'discrete_temp',
     item: item.id,
@@ -119,129 +110,22 @@ function pickSubItem(item) {
     showModal({
       title: `选择${item.name}种类`,
       bodyHTML: html,
-      onConfirm: () => {
-        const sel = document.querySelector('#subPick .choice.active');
-        if (!sel) { showToast('请选择一项'); return; }
-        const sub = item.subItems.find(s => s.id === sel.dataset.id);
-        hideModal();
-        resolve(sub);
-      },
+      hideConfirm: true,
       onCancel: () => { hideModal(); resolve(null); },
     });
     document.querySelectorAll('#subPick .choice').forEach(c => {
       c.onclick = () => {
-        document.querySelectorAll('#subPick .choice').forEach(x => x.classList.remove('active'));
-        c.classList.add('active');
+        const sub = item.subItems.find(s => s.id === c.dataset.id);
+        hideModal();
+        resolve(sub);
       };
     });
   });
 }
 
-// ============= 连续诱惑 =============
-async function onContinuousTempClick(item) {
-  const result = await openTemptationModal({
-    title: item.name,
-    needAmount: true,
-    amountUnit: item.unit,
-    amountStep: item.step,
-    threshold: item.threshold,
-  });
-  if (!result) return;
-
-  let score;
-  if (result.resisted) {
-    score = result.desire;
-  } else {
-    const overage = Math.max(0, result.amount - item.threshold);
-    score = (result.desire - overage) * CONFIG.scoring.continuousSurrenderMultiplier;
-  }
-
-  await logEvent({
-    category: 'continuous_temp',
-    item: item.id,
-    desire: result.desire,
-    resisted: result.resisted,
-    amount: result.resisted ? '' : result.amount,
-    score: round1(score),
-  });
-}
-
-// ============= 连续奖励（增量计分）=============
-async function onContinuousRewardClick(item) {
-  const amount = await openAmountModal({
-    title: `记录${item.name}`,
-    label: `本次${item.name}（${item.unit}）`,
-    step: item.step,
-  });
-  if (amount === null) return;
-
-  let prev;
-  try {
-    prev = await callBackend('getRewardTotal', { item: item.id });
-  } catch (e) {
-    showToast('查询失败：' + e.message);
-    return;
-  }
-  const oldAmount = prev.totalAmount || 0;
-  const oldScore = prev.totalScore || 0;
-  const newAmount = oldAmount + amount;
-  const newScore = computeRewardScore(newAmount, item);
-  const incrementScore = newScore - oldScore;
-
-  await logEvent({
-    category: 'continuous_reward',
-    item: item.id,
-    amount: amount,
-    score: round1(incrementScore),
-    note: `累积 ${round1(newAmount)}${item.unit}`,
-  });
-}
-
-function computeRewardScore(totalAmount, item) {
-  if (totalAmount <= item.baseline) return 0;
-  const over = totalAmount - item.baseline;
-  const raw = (over / item.ratePer) * item.rate;
-  return Math.min(raw, item.cap);
-}
-
-// ============= 离散奖励 =============
-async function onDiscreteRewardClick(item) {
-  await logEvent({
-    category: 'discrete_reward',
-    item: item.id,
-    score: item.score,
-  });
-}
-
-// ============= 临时诱惑 =============
-async function onExtraClick() {
-  const name = await openTextModal('临时诱惑名称', '比如：吃炸鸡');
-  if (!name) return;
-
-  const result = await openTemptationModal({
-    title: `临时：${name}`,
-    needAmount: false,
-  });
-  if (!result) return;
-
-  const score = result.resisted
-    ? result.desire
-    : -result.desire * CONFIG.scoring.discreteSurrenderMultiplier;
-
-  await logEvent({
-    category: 'extra_temp',
-    item: name,
-    desire: result.desire,
-    resisted: result.resisted,
-    score: round1(score),
-    note: '临时',
-  });
-}
-
-// ============= 通用模态：诱惑表单 =============
-function openTemptationModal({ title, needAmount, amountUnit, amountStep, threshold }) {
+function openDiscreteTempModal({ title }) {
   return new Promise(resolve => {
-    let html = `
+    const html = `
       <div class="field">
         <label>欲望强度</label>
         <div class="slider-row">
@@ -255,63 +139,180 @@ function openTemptationModal({ title, needAmount, amountUnit, amountStep, thresh
           <div class="choice" data-value="resist">✊ 战胜</div>
           <div class="choice" data-value="surrender">😩 屈服</div>
         </div>
-      </div>
-    `;
-    if (needAmount) {
-      html += `
-        <div class="field" id="amountField" style="display:none">
-          <label>实际${amountUnit}（阈值 ${threshold}${amountUnit}）</label>
-          <input type="number" min="0" step="${amountStep}" id="amountInput" placeholder="${threshold}">
-        </div>
-      `;
-    }
+      </div>`;
     showModal({
       title, bodyHTML: html,
       onConfirm: () => {
         const desire = parseInt(document.getElementById('desireSlider').value);
-        const resultEl = document.querySelector('#resultPick .choice.active');
-        if (!resultEl) { showToast('请选择结果'); return; }
-        const resisted = resultEl.dataset.value === 'resist';
-        let amount = 0;
-        if (needAmount && !resisted) {
-          const a = parseFloat(document.getElementById('amountInput').value);
-          if (isNaN(a) || a < 0) { showToast(`请输入${amountUnit}数`); return; }
-          amount = a;
-        }
+        const sel = document.querySelector('#resultPick .choice.active');
+        if (!sel) { showToast('请选择结果'); return; }
         hideModal();
-        resolve({ desire, resisted, amount });
+        resolve({ desire, resisted: sel.dataset.value === 'resist' });
       },
       onCancel: () => { hideModal(); resolve(null); },
     });
-
     const slider = document.getElementById('desireSlider');
     const val = document.getElementById('desireVal');
     slider.oninput = () => { val.textContent = slider.value; };
-
     document.querySelectorAll('#resultPick .choice').forEach(c => {
       c.onclick = () => {
         document.querySelectorAll('#resultPick .choice').forEach(x => x.classList.remove('active'));
         c.classList.add('active');
-        const af = document.getElementById('amountField');
-        if (af) af.style.display = (needAmount && c.dataset.value === 'surrender') ? '' : 'none';
       };
     });
   });
 }
 
-function openAmountModal({ title, label, step }) {
+// ============= 适可而止（连续诱惑）=============
+async function onContinuousTempClick(item) {
+  const result = await openContinuousTempModal({
+    title: item.name,
+    threshold: item.threshold,
+    unit: item.unit,
+    min: item.min,
+    max: item.max,
+    step: item.step,
+  });
+  if (!result) return;
+  const score = computeContinuousTempScore(result.desire, result.amount, item.threshold);
+  await logEvent({
+    category: 'continuous_temp',
+    item: item.id,
+    desire: result.desire,
+    resisted: '',
+    amount: result.amount,
+    score: round1(score),
+    note: `${result.amount}${item.unit}`,
+  });
+}
+
+function computeContinuousTempScore(desire, amount, threshold) {
+  let factor = 1 - amount / threshold;
+  if (factor < 0) factor *= CONFIG.scoring.continuousPenaltyMultiplier;
+  return desire * factor;
+}
+
+function openContinuousTempModal({ title, threshold, unit, min, max, step }) {
   return new Promise(resolve => {
-    const html = `<div class="field"><label>${label}</label><input type="number" min="0" step="${step}" id="onlyAmountInput"></div>`;
+    const html = `
+      <div class="field">
+        <label>欲望强度</label>
+        <div class="slider-row">
+          <input type="range" min="1" max="10" step="1" value="5" id="desireSlider">
+          <div class="slider-val" id="desireVal">5</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>实际${unit}（阈值 ${threshold}${unit}）</label>
+        <div class="slider-row">
+          <input type="range" min="${min}" max="${max}" step="${step}" value="0" id="amountSlider">
+          <div class="slider-val" id="amountVal">0</div>
+        </div>
+      </div>`;
     showModal({
       title, bodyHTML: html,
       onConfirm: () => {
-        const a = parseFloat(document.getElementById('onlyAmountInput').value);
-        if (isNaN(a) || a <= 0) { showToast('请输入有效数量'); return; }
-        hideModal(); resolve(a);
+        const desire = parseInt(document.getElementById('desireSlider').value);
+        const amount = parseFloat(document.getElementById('amountSlider').value);
+        hideModal();
+        resolve({ desire, amount });
       },
       onCancel: () => { hideModal(); resolve(null); },
     });
-    setTimeout(() => document.getElementById('onlyAmountInput').focus(), 100);
+    const ds = document.getElementById('desireSlider');
+    const dv = document.getElementById('desireVal');
+    ds.oninput = () => { dv.textContent = ds.value; };
+    const as = document.getElementById('amountSlider');
+    const av = document.getElementById('amountVal');
+    as.oninput = () => { av.textContent = as.value; };
+  });
+}
+
+// ============= 身心强大（连续奖励，今日累计模型）=============
+async function onContinuousRewardClick(item) {
+  let prev;
+  try {
+    prev = await callBackend('getRewardTotal', { item: item.id });
+  } catch (e) { showToast('查询失败：' + e.message); return; }
+  const prevTotal = Number(prev.totalAmount) || 0;
+  const prevScore = Number(prev.totalScore) || 0;
+
+  const initial = Math.min(Math.max(prevTotal, item.min), item.max);
+
+  const newTotal = await openSingleSliderModal({
+    title: `记录${item.name}`,
+    label: `今日累计${item.unit}（之前 ${prevTotal}${item.unit}）`,
+    min: item.min, max: item.max, step: item.step, initial,
+  });
+  if (newTotal === null) return;
+
+  const delta = newTotal - prevTotal;
+  if (!item.inverse && delta < 0) { showToast('累计值不能减少'); return; }
+
+  const newScore = computeRewardScore(newTotal, item);
+  const incrementScore = newScore - prevScore;
+
+  await logEvent({
+    category: 'continuous_reward',
+    item: item.id,
+    amount: round1(delta),
+    score: round1(incrementScore),
+    note: `累计 ${round1(newTotal)}${item.unit}`,
+  });
+}
+
+function computeRewardScore(totalAmount, item) {
+  if (item.inverse) {
+    const diff = item.baseline - totalAmount;
+    if (diff <= 0) return 0;
+    return Math.min((diff / item.ratePer) * item.rate, item.cap);
+  }
+  if (totalAmount <= item.baseline) return 0;
+  return Math.min(((totalAmount - item.baseline) / item.ratePer) * item.rate, item.cap);
+}
+
+function openSingleSliderModal({ title, label, min, max, step, initial }) {
+  return new Promise(resolve => {
+    const html = `
+      <div class="field">
+        <label>${label}</label>
+        <div class="slider-row">
+          <input type="range" min="${min}" max="${max}" step="${step}" value="${initial}" id="onlySlider">
+          <div class="slider-val" id="onlyVal">${initial}</div>
+        </div>
+      </div>`;
+    showModal({
+      title, bodyHTML: html,
+      onConfirm: () => {
+        const v = parseFloat(document.getElementById('onlySlider').value);
+        hideModal(); resolve(v);
+      },
+      onCancel: () => { hideModal(); resolve(null); },
+    });
+    const s = document.getElementById('onlySlider');
+    const v = document.getElementById('onlyVal');
+    s.oninput = () => { v.textContent = s.value; };
+  });
+}
+
+// ============= 健康饮食（离散奖励）=============
+async function onDiscreteRewardClick(item) {
+  await logEvent({
+    category: 'discrete_reward', item: item.id, score: item.score,
+  });
+}
+
+// ============= 临时诱惑 =============
+async function onExtraClick() {
+  const name = await openTextModal('临时诱惑名称', '比如：吃炸鸡');
+  if (!name) return;
+  const result = await openDiscreteTempModal({ title: `临时：${name}` });
+  if (!result) return;
+  const score = result.resisted ? result.desire : -result.desire * CONFIG.scoring.discreteSurrenderMultiplier;
+  await logEvent({
+    category: 'extra_temp', item: name,
+    desire: result.desire, resisted: result.resisted,
+    score: round1(score), note: '临时',
   });
 }
 
@@ -332,20 +333,21 @@ function openTextModal(title, placeholder) {
 }
 
 // ============= 模态控制 =============
-function showModal({ title, bodyHTML, onConfirm, onCancel }) {
+function showModal({ title, bodyHTML, onConfirm, onCancel, hideConfirm }) {
   els.modalTitle.textContent = title;
   els.modalBody.innerHTML = bodyHTML;
   els.modal.hidden = false;
+  els.modalConfirm.style.display = hideConfirm ? 'none' : '';
   els.modalConfirm.onclick = () => onConfirm && onConfirm();
   els.modalCancel.onclick = () => onCancel && onCancel();
 }
-
 function hideModal() {
   els.modal.hidden = true;
   els.modalBody.innerHTML = '';
+  els.modalConfirm.style.display = '';
 }
 
-// ============= 提交记录 + 刷新 =============
+// ============= 提交 + 刷新 =============
 async function logEvent(payload) {
   showToast('记录中…');
   try {
@@ -354,19 +356,15 @@ async function logEvent(payload) {
     const sign = s > 0 ? '+' : '';
     showToast(`${sign}${s} 分`);
     await refreshToday();
-  } catch (e) {
-    showToast('失败：' + e.message);
-  }
+  } catch (e) { showToast('失败：' + e.message); }
 }
 
-// ============= 刷新今日 =============
 async function refreshToday() {
   els.todayMeta.textContent = '加载中…';
   try {
     const data = await callBackend('getToday');
     els.todayScore.textContent = round1(data.total).toString();
-    els.todayMeta.textContent = `${data.events.length} 条记录`;
-
+    els.todayMeta.textContent = `${data.events.length} 条战报`;
     if (!data.events.length) {
       els.todayLog.innerHTML = '<div class="muted">暂无记录</div>';
       return;
@@ -379,9 +377,7 @@ async function refreshToday() {
       const sign = s > 0 ? '+' : '';
       return `<div class="log-item"><div><div>${itemLabel}</div><div class="t">${time}</div></div><div class="s ${cls}">${sign}${s}</div></div>`;
     }).join('');
-  } catch (e) {
-    els.todayMeta.textContent = '加载失败：' + e.message;
-  }
+  } catch (e) { els.todayMeta.textContent = '加载失败：' + e.message; }
 }
 
 function formatItemLabel(ev) {
@@ -398,15 +394,16 @@ function formatItemLabel(ev) {
     ? (idMap[`${ev.item}:${ev.subitem}`] || `${ev.item}-${ev.subitem}`)
     : (idMap[ev.item] || ev.item);
 
-  let result = '';
-  if (['discrete_temp', 'continuous_temp', 'extra_temp'].includes(ev.category)) {
-    const r = ev.resisted;
-    const isResist = r === true || r === 'TRUE' || r === 'true';
-    result = isResist ? ' ✊战胜' : ' 😩屈服';
+  let detail = '';
+  if (ev.category === 'discrete_temp' || ev.category === 'extra_temp') {
+    const isResist = ev.resisted === true || ev.resisted === 'TRUE' || ev.resisted === 'true';
+    detail = isResist ? ' ✊战胜' : ' 😩屈服';
+  } else if (ev.category === 'continuous_temp') {
+    detail = ` D${ev.desire}/${ev.amount}h`;
+  } else if (ev.category === 'continuous_reward' && ev.note) {
+    detail = ` ${ev.note}`;
   }
-  let amt = '';
-  if (ev.amount !== '' && ev.amount != null && ev.amount !== 0) amt = ` (${ev.amount})`;
-  return `${name}${result}${amt}`;
+  return `${name}${detail}`;
 }
 
 function round1(n) { return Math.round(Number(n) * 10) / 10; }
